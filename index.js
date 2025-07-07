@@ -64,6 +64,11 @@ const transporter = nodemailer.createTransport({
   }
 });
 
+// Route to check if server is live
+app.get('/', (req, res) => {
+  res.send('Server is live!');
+});
+
 // Example route to send OTP email
 app.post('/send-otp', async (req, res) => {
   const { email, otp } = req.body;
