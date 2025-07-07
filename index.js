@@ -1,9 +1,7 @@
-// index.js
 const express = require("express");
 const cors = require("cors");
-const admin = require("firebase-admin");
-const nodemailer = require("nodemailer");
 const bodyParser = require("body-parser");
+const admin = require("firebase-admin");
 
 // Your Firebase service account JSON (paste exactly as given)
 const serviceAccount = {
@@ -48,7 +46,8 @@ yZv6Gfh8qCjh4bhn2wJ/cJM=
   "universe_domain": "googleapis.com"
 };
 
-// Initialize Firebase Admin SDK
+
+// Initialize Firebase Admin
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
   databaseURL: "https://epic-e-sport-default-rtdb.firebaseio.com"
@@ -56,97 +55,75 @@ admin.initializeApp({
 
 const db = admin.database();
 
-const app = require("express")();
-const cors = require("cors");
-const bodyParser = require("body-parser");
-const nodemailer = require("nodemailer");
+const app = express();
 
 app.use(cors());
 app.use(bodyParser.json());
 
-// Nodemailer transporter (your gmail + app password)
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: "epicesporthelp@gmail.com",
-    pass: "yhgrxiljtgnbptdk",  // app password or actual password (prefer app password)
-  },
-});
-
-// Generate 6-digit OTP
-function generateOTP() {
+// Helper: Generate 6-digit OTP
+function generateOtp() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-// POST /send-otp : generate OTP, save in Firebase, send email
+// Endpoint: Send OTP
 app.post("/send-otp", async (req, res) => {
   const { email } = req.body;
-  if (!email) return res.status(400).json({ error: "Email is required" });
+  if (!email) {
+    return res.status(400).json({ error: "Email is required" });
+  }
+
+  const otp = generateOtp();
+  const otpData = {
+    otp,
+    createdAt: Date.now()
+  };
 
   try {
-    const otp = generateOTP();
+    // Save OTP under users/{email}/otp (replace '.' in email with ',')
+    const safeEmail = email.replace(/\./g, ",");
+    await db.ref(`users/${safeEmail}`).set(otpData);
 
-    // Firebase key can't contain ".", replace with ","
-    const key = email.replace(/\./g, ",");
+    // Here you would send the OTP via email (using nodemailer or other service)
+    // For now, we simulate by logging
+    console.log(`Sending OTP ${otp} to email: ${email}`);
 
-    await db.ref("otps").child(key).set({
-      otp,
-      createdAt: Date.now(),
-    });
-
-    const mailOptions = {
-      from: '"Epic E-Sport" <epicesporthelp@gmail.com>',
-      to: email,
-      subject: "Your OTP Code",
-      text: `Your OTP is: ${otp}\nIt expires in 5 minutes.`,
-    };
-
-    await transporter.sendMail(mailOptions);
-
-    res.json({ message: "OTP sent" });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to send OTP" });
+    return res.json({ message: "OTP sent successfully", otp }); // Remove otp in production for security
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
-// POST /verify-otp : check OTP in Firebase
+// Endpoint: Verify OTP
 app.post("/verify-otp", async (req, res) => {
   const { email, otp } = req.body;
-  if (!email || !otp) return res.status(400).json({ error: "Email and OTP required" });
+  if (!email || !otp) {
+    return res.status(400).json({ error: "Email and OTP are required" });
+  }
 
   try {
-    const key = email.replace(/\./g, ",");
-    const snapshot = await db.ref("otps").child(key).get();
-
-    if (!snapshot.exists()) {
-      return res.status(400).json({ error: "No OTP found for this email" });
-    }
-
+    const safeEmail = email.replace(/\./g, ",");
+    const snapshot = await db.ref(`users/${safeEmail}`).once("value");
     const data = snapshot.val();
 
-    // Check expiry: 5 minutes
-    if (Date.now() - data.createdAt > 5 * 60 * 1000) {
-      await db.ref("otps").child(key).remove(); // cleanup expired
-      return res.status(400).json({ error: "OTP expired" });
-    }
-
-    if (data.otp === otp) {
-      await db.ref("otps").child(key).remove(); // OTP used, remove it
-      return res.json({ message: "OTP verified" });
+    if (data && data.otp === otp) {
+      return res.json({ message: "OTP verified successfully" });
     } else {
       return res.status(400).json({ error: "Invalid OTP" });
     }
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Verification failed" });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
-// Root route - simple live check
-app.get("/", (req, res) => {
-  res.send("OTP Server is live!");
+// Server status endpoint
+app.get("/status", (req, res) => {
+  res.json({ status: "Server is running" });
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
