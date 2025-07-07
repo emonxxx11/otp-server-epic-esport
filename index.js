@@ -1,10 +1,9 @@
-const express = require('express');
-const bodyParser = require('body-parser');
-const admin = require('firebase-admin');
-const nodemailer = require('nodemailer');
-
-const app = express();
-app.use(bodyParser.json());
+// index.js
+import express from "express";
+import cors from "cors";
+import admin from "firebase-admin";
+import nodemailer from "nodemailer";
+import bodyParser from "body-parser";
 
 // Firebase service account details (hardcoded)
 const serviceAccount = {
@@ -49,48 +48,97 @@ UodORU7RBePeGmZVkvCkTs1D
   "universe_domain": "googleapis.com"
 };
 
-// Initialize Firebase Admin SDK
+// Initialize Firebase Admin
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
-  databaseURL: "https://epic-e-sport-default-rtdb.firebaseio.com"
+  databaseURL: "https://epic-e-sport-default-rtdb.firebaseio.com",
 });
 
-// Setup nodemailer with your Gmail account
+const db = admin.database();
+
+const app = express();
+app.use(cors());
+app.use(bodyParser.json());
+
+// Nodemailer setup for Gmail SMTP (use app password or OAuth2)
+// Replace with your credentials:
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  service: "gmail",
   auth: {
-    user: 'epicesporthelp@gmail.com',
-    pass: 'yhgrxiljtgnbptdk' // Your Gmail app password or actual password
-  }
+    user: "epicesporthelp@gmail.com",
+    pass: "yhgrxiljtgnbptdk", // Use app-specific password
+  },
 });
 
-// Route to check if server is live
-app.get('/', (req, res) => {
-  res.send('Server is live!');
-});
+// Generate 6-digit OTP
+function generateOTP() {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
 
-// Example route to send OTP email
-app.post('/send-otp', async (req, res) => {
-  const { email, otp } = req.body;
+// Endpoint to send OTP
+app.post("/send-otp", async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: "Email is required" });
 
+  const otp = generateOTP();
+
+  // Save OTP in Firebase under /otps/{email}
+  const sanitizedEmailKey = email.replace(/\./g, ","); // Firebase key can't have dots
+  await db.ref("otps").child(sanitizedEmailKey).set({
+    otp,
+    createdAt: Date.now(),
+  });
+
+  // Email message
   const mailOptions = {
-    from: 'epicesporthelp@gmail.com',
+    from: '"Epic E-Sport" <epicesporthelp@gmail.com>',
     to: email,
-    subject: 'Your OTP Code',
-    text: `Your OTP code is ${otp}`
+    subject: "Your OTP Code",
+    text: `Your OTP code is: ${otp}. It will expire in 5 minutes.`,
   };
 
   try {
     await transporter.sendMail(mailOptions);
-    res.status(200).send({ message: 'OTP sent successfully!' });
+    res.json({ message: "OTP sent" });
   } catch (error) {
-    console.error('Error sending OTP email:', error);
-    res.status(500).send({ error: 'Failed to send OTP' });
+    console.error("Error sending email:", error);
+    res.status(500).json({ error: "Failed to send OTP" });
   }
 });
+
+// Endpoint to verify OTP
+app.post("/verify-otp", async (req, res) => {
+  const { email, otp } = req.body;
+  if (!email || !otp) return res.status(400).json({ error: "Email and OTP required" });
+
+  const sanitizedEmailKey = email.replace(/\./g, ",");
+  const otpData = await db.ref("otps").child(sanitizedEmailKey).get();
+
+  if (!otpData.exists()) {
+    return res.status(400).json({ error: "No OTP found for this email" });
+  }
+
+  const { otp: storedOtp, createdAt } = otpData.val();
+
+  // Check OTP expiry (5 minutes)
+  if (Date.now() - createdAt > 5 * 60 * 1000) {
+    return res.status(400).json({ error: "OTP expired" });
+  }
+
+  if (otp === storedOtp) {
+    // OTP verified, delete from DB
+    await db.ref("otps").child(sanitizedEmailKey).remove();
+    return res.json({ message: "OTP verified" });
+  } else {
+    return res.status(400).json({ error: "Invalid OTP" });
+  }
+});
+
+// Health check endpoint
+app.get("/", (req, res) => res.send("OTP Server is live!"));
 
 // Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Server started on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
