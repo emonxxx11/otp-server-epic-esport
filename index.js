@@ -1,40 +1,43 @@
-const express = require("express");
-const cors = require("cors");
-const bodyParser = require("body-parser");
-const admin = require("firebase-admin");
+const express = require('express');
+const bodyParser = require('body-parser');
+const admin = require('firebase-admin');
+const nodemailer = require('nodemailer');
 
-// Your Firebase service account JSON (paste exactly as given)
+const app = express();
+app.use(bodyParser.json());
+
+// Firebase service account details (hardcoded)
 const serviceAccount = {
   "type": "service_account",
   "project_id": "epic-e-sport",
-  "private_key_id": "8ab81fdd6a61e135b79a2e824266043e6f2214c1",
+  "private_key_id": "63f9a5bfa56a260cce653e65cfa144e6961d0b34",
   "private_key": `-----BEGIN PRIVATE KEY-----
-MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCHJYuTJ+/GdO+L
-+0lULMBaEEDqehJa6HPn0SyC/wv++kf0NAJNWu7Ev4EXYYEEPzHCtZqeYHNirtyf
-a0soCKRwC9Wi8ChKikNTeDQGQNzIJ3lua4WIRaFW/MRGh9XPHv6Mg72p5D5gj3mO
-eqgEJhcLSSh4Jtr7Scke8Hj0nVkSSmElhId5OcpB8o4XhaVxSiEP2nbrnEikvVNZ
-DUEvMHJ31tFvw/A7h4XwpyC/baOzXbzwL2MWDg/fFcxTVDq4aDUaOUxZJlX7MUca
-HKBKzCyZMNVXhqWzdYMWMhrMQWdWm3TFNxZZeVIwGA8w7TSGv75x0zVMG5t2Oruj
-v6yRN4+pAgMBAAECggEABBgTE7DQsVu21gVqwe4JIFwAW29klvRrw8ixEdbVb4f4
-HgxlSsqdE8C+vGKWcfZ9dL849otIHjkwiHPLobmBTGj6CSbqpuIWtV9IKYMALTVk
-7FS9hX9L1ULFqg1QtibjjIYr0gsOs1t6pzeirLLVXTYoz7BS+ex7oer5qboKig9D
-ftivKoQMJ5K/pRJQubR+2z/RURe2v4erDNP0/0zVcT1HJRU+WuzQ85W80WQFlYE1
-Hb2U+e0U8gkSTdXpgrhD5NOjLXYCMS9QFTLjaLcpmmZyzx2IdzUGEJ01pMYYg923
-sjjFGQ5o3YM6CcS3aUsVp4AEVUojqxUuoogwVdHLcQKBgQC+1Hf1EBmFj/+X4g7M
-kaXpzEEWs7Yr8ROMqxLU3lwq4YzzMnU3gvCiXPZeQ6sbuJqhVqEEw+baPvHblFfP
-ot/VSfWwofzZ9hwUHA/5mqzoxIJ73xJ4NhsGD3X/RM2LJvhuIqoS52A0rXlolgka
-yBFjbbqNf9/RNA/7T40MYNJ0NwKBgQC1TOZRAmoyWQg1rFtzbwsgxkNW0SASe9Gs
-p5Kv+qEfFrYiBLF6+jNb39n4aL1VaG+OlUD+nulKBt1oCF8EXKdT+05wa4hu4qzZ
-AiLsXqQJsJHTVl45md+Rckhz/Omi2mqwrdaDo9lBG/eYYPCry8UDg/d+teh0IxxC
-g80ppNvrHwKBgDhZVPKwRlkCJF8dCXGusGdRQQcLGgfvr+4htfXVkzG2WICXrbUu
-nQ/Uk4tSP/x3jnGFuxZFIq3fWFuWejd9yMqahEocCyXxXmkxwCXcXqJ9JGqffDyy
-/VfUyOsPzgIBB+q9oarjV602bFtNsnKOEVRi2mteDyEfVnjHDMdS79IRAoGAQ6pr
-25hXImtwUPf/OdocASN+RozOt5dW7mWsrdmRARVs7M1roEZ5nLSzma8d2x6bZE/4
-bg/JakOdpxJYxDwAh6un3vWDej9H28acWjQIbUVlZ8c4a68ubg6FVCT03j8+yqpX
-AdLJZy+U/V5Q9Q2cfm9mk/g4xf/EsF6Y2A4btmkCgYEAl35P5RE+qxTDEyky3LWZ
-NWavALSpwS6IRn8R0Jgx3ovWlw0GXf9YOY8f62mSqNu5earYrG0YE13zJIvZiZ+j
-Jsk/IexU3BKBfsJvq0fpIJGYsomLclVCCaL6jYI4j+VlR7oP92JhxSoP2h530fGo
-yZv6Gfh8qCjh4bhn2wJ/cJM=
+MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDRpWmC0bM7l3sD
+M/Jaw7a4yYsRG2xVvSdg70aNdsvb/p4BO9TSD78KUx9xBabzf8/wkm8ofiKq4Hj9
+vwTBWtUBwMxYxUdUJTKYYYmucWvMAQspVvy5FoccvdOVOGB1FKu4DV4xbZucK1GT
+b1nkbdnoutKbSUroSUVdxhwIjWuGO9C6JxvgGR4r75C9zSkyLYjLd/j4p2fs0KW2
+9/xbF85sAW/tQQEZxfIL//11XWOgq565wZFM4Jiz5QrQjwXaX9gDrb4xPGgZi8/q
+xmE8pMqqMTb/MXHjHBH1tUuTFYxl1hoXTsGztryZGsrGOxZaQSjkd08PlH9U+ho1
+WQ/r9k1JAgMBAAECggEATGirUgC4AIovTXWLaUVXvXXHd86053LvfUb4QesAVggw
+8mYqJP2UNWEiXoEe3jTBRv84AFwoqnrx3hnW09oVNHRehiQw4RxFmoBCPBAep9Xh
+iYmoxpTNXc5Z5VMM5N9JzuUgZYd7ZansK340FytqdoZQ6EQIRy0dWRYxdXSFsgBG
+LcdbE8G/ss/n/mM2Qy0wGvJTNtohIlVQk+38Acii5ug7kT7fcvxj3NfWmnsaiMzw
+c1I40Se/gH91uh8q2OfXI2FzimfsuENcAP2K+IidMLT2uHQfOAZwCDGI7f4xep4d
+tNEPI4b9BkOjTaupAnnoz0kmvencGz7DCPQxCQ8ruQKBgQDn1D/uPMF1FjcYydiZ
+gyqyEQWExQsv7IVDCmMWpJJmc4qKkrPbG/dH2rVk+n2QalnG1/5PoWZwtAhK6MAm
+t7ecqm6yTE4twSSzdvmW8IcPP8tqJB7otXefK7WeuaHi0Kc0rCr0nMhzQV6G9IuV
+GuIQdDHs6u263zKDEO9QoahuKwKBgQDngRO7l1RzeDKpZpPcPu69hOXAeggfml2S
++cN6APrdCGZoPgmzW5Z5ZJbCuak4BdFOAhnlWvXv7CcxBfUv8fL5yW54+rFngdYJ
+AcUS8LMd2mUI4WMBxVe1vuZkIAEY4wTATeTjsob2kXQC/DPcERrEkkn9264DJWN2
+vD8c4ldsWwKBgCoR7WwZYG4UEvmPn5v0HqpjxmGatHYE8QYCe4rfYKXw78JH7xWj
+FJPYj7R8dI7hjds01TS0MHfhY+PcKwqbqllm4GHA0SsicruSqqaGjavpwstHNMi8
+LbIX54SfYU5c2QsI916emQ25XiMVe8MaNs4PmAPLekrAOFVqnFNAkuUzAoGBANJM
+kS5iBBd44xy70CnNCXckGMnGkUaUJdj0Brz30uujS9P6Nzm1Q3Y3CDUQD0aTElW4
+1ulgvfUbI2cHMHpDYiPC9hX0Nd//M/2um+XevfeqgwmUJSpgqJKzPftKj3SaFaDT
+oc+uR6gI7cggbsPEzfovogN34hV9i2M7EmIcwqntAoGBAMpX6OLJcN49PUCBwPRt
+6WtNGGBdcXiYIfYnrfHaf8/lhXfKdHp3ENLuO8dFwssNI7jC2yBY0yUDhsvf+RXl
+1m6x4qLb/S4PFt4TZp+lmsahf8gkqmQOblPV+Jw9hIZIGSXXj/miUneaM9JyCaxW
+UodORU7RBePeGmZVkvCkTs1D
 -----END PRIVATE KEY-----
 `,
   "client_email": "firebase-adminsdk-fbsvc@epic-e-sport.iam.gserviceaccount.com",
@@ -46,84 +49,48 @@ yZv6Gfh8qCjh4bhn2wJ/cJM=
   "universe_domain": "googleapis.com"
 };
 
-
-// Initialize Firebase Admin
+// Initialize Firebase Admin SDK
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
   databaseURL: "https://epic-e-sport-default-rtdb.firebaseio.com"
 });
 
-const db = admin.database();
-
-const app = express();
-
-app.use(cors());
-app.use(bodyParser.json());
-
-// Helper: Generate 6-digit OTP
-function generateOtp() {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-}
-
-// Endpoint: Send OTP
-app.post("/send-otp", async (req, res) => {
-  const { email } = req.body;
-  if (!email) {
-    return res.status(400).json({ error: "Email is required" });
+// Setup nodemailer with your Gmail account
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: 'epicesporthelp@gmail.com',
+    pass: 'yhgrxiljtgnbptdk' // Your Gmail app password or actual password
   }
+});
 
-  const otp = generateOtp();
-  const otpData = {
-    otp,
-    createdAt: Date.now()
+// Route to check if server is live
+app.get('/', (req, res) => {
+  res.send('Server is live!');
+});
+
+// Example route to send OTP email
+app.post('/send-otp', async (req, res) => {
+  const { email, otp } = req.body;
+
+  const mailOptions = {
+    from: 'epicesporthelp@gmail.com',
+    to: email,
+    subject: 'Your OTP Code',
+    text: `Your OTP code is ${otp}`
   };
 
   try {
-    // Save OTP under users/{email}/otp (replace '.' in email with ',')
-    const safeEmail = email.replace(/\./g, ",");
-    await db.ref(`users/${safeEmail}`).set(otpData);
-
-    // Here you would send the OTP via email (using nodemailer or other service)
-    // For now, we simulate by logging
-    console.log(`Sending OTP ${otp} to email: ${email}`);
-
-    return res.json({ message: "OTP sent successfully", otp }); // Remove otp in production for security
+    await transporter.sendMail(mailOptions);
+    res.status(200).send({ message: 'OTP sent successfully!' });
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ error: "Internal Server Error" });
+    console.error('Error sending OTP email:', error);
+    res.status(500).send({ error: 'Failed to send OTP' });
   }
 });
 
-// Endpoint: Verify OTP
-app.post("/verify-otp", async (req, res) => {
-  const { email, otp } = req.body;
-  if (!email || !otp) {
-    return res.status(400).json({ error: "Email and OTP are required" });
-  }
-
-  try {
-    const safeEmail = email.replace(/\./g, ",");
-    const snapshot = await db.ref(`users/${safeEmail}`).once("value");
-    const data = snapshot.val();
-
-    if (data && data.otp === otp) {
-      return res.json({ message: "OTP verified successfully" });
-    } else {
-      return res.status(400).json({ error: "Invalid OTP" });
-    }
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ error: "Internal Server Error" });
-  }
-});
-
-// Server status endpoint
-app.get("/status", (req, res) => {
-  res.json({ status: "Server is running" });
-});
-
+// Start server
 const PORT = process.env.PORT || 3000;
-
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Server started on port ${PORT}`);
 });
