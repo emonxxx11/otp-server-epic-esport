@@ -60,7 +60,7 @@ const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
     user: 'epicesporthelp@gmail.com',
-    pass: 'yhgrxiljtgnbptdk'
+    pass: 'urrvgqqownuofpvg'
   }
 });
 
