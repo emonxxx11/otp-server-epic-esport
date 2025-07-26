@@ -1,4 +1,3 @@
-require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
 const admin = require('firebase-admin');
@@ -41,7 +40,8 @@ oc+uR6gI7cggbsPEzfovogN34hV9i2M7EmIcwqntAoGBAMpX6OLJcN49PUCBwPRt
 6WtNGGBdcXiYIfYnrfHaf8/lhXfKdHp3ENLuO8dFwssNI7jC2yBY0yUDhsvf+RXl
 1m6x4qLb/S4PFt4TZp+lmsahf8gkqmQOblPV+Jw9hIZIGSXXj/miUneaM9JyCaxW
 UodORU7RBePeGmZVkvCkTs1D
------END PRIVATE KEY-----`,
+-----END PRIVATE KEY-----
+`,
   "client_email": "firebase-adminsdk-fbsvc@epic-e-sport.iam.gserviceaccount.com",
   "client_id": "105289591999658971800",
   "auth_uri": "https://accounts.google.com/o/oauth2/auth",
@@ -80,17 +80,6 @@ app.post('/send-otp', async (req, res) => {
     const { email } = req.body;
     if (!email) return res.status(400).json({ error: 'Email is required' });
 
-    // Check if user exists in Firebase Auth
-    try {
-      const userRecord = await admin.auth().getUserByEmail(email);
-      console.log('User found:', userRecord.uid);
-    } catch (error) {
-      if (error.code === 'auth/user-not-found') {
-        return res.status(400).json({ error: 'No account found with this email address' });
-      }
-      throw error;
-    }
-
     const otp = generateOtp();
 
     // Store OTP in Firebase RTDB (replace '.' in email with ',')
@@ -104,20 +93,8 @@ app.post('/send-otp', async (req, res) => {
     await transporter.sendMail({
       from: 'epicesporthelp@gmail.com',
       to: email,
-      subject: 'Epic E-Sport - Password Reset OTP',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #BB86FC;">Epic E-Sport Password Reset</h2>
-          <p>Hello!</p>
-          <p>You have requested to reset your password. Use the following OTP to complete the process:</p>
-          <div style="background-color: #1F1B24; padding: 20px; text-align: center; border-radius: 8px; margin: 20px 0;">
-            <h1 style="color: #BB86FC; font-size: 32px; margin: 0; letter-spacing: 8px;">${otp}</h1>
-          </div>
-          <p><strong>This OTP will expire in 5 minutes.</strong></p>
-          <p>If you didn't request this password reset, please ignore this email.</p>
-          <p>Best regards,<br>Epic E-Sport Team</p>
-        </div>
-      `
+      subject: 'Your OTP Code',
+      text: `Your OTP code is: ${otp}`
     });
 
     res.json({ message: 'OTP sent successfully' });
@@ -140,7 +117,7 @@ app.post('/verify-otp', async (req, res) => {
 
     const data = snap.val();
 
-    // Check OTP expiry (5 minutes)
+    // Optionally: check OTP expiry (e.g., 5 mins)
     const isExpired = (Date.now() - data.createdAt) > 5 * 60 * 1000; 
     if (isExpired) {
       await admin.database().ref(`otps/${emailKey}`).remove();
@@ -161,69 +138,7 @@ app.post('/verify-otp', async (req, res) => {
   }
 });
 
-// Reset password route
-app.post('/reset-password', async (req, res) => {
-  try {
-    const { email, newPassword } = req.body;
-    if (!email || !newPassword) {
-      return res.status(400).json({ error: 'Email and new password are required' });
-    }
-
-    if (newPassword.length < 6) {
-      return res.status(400).json({ error: 'Password must be at least 6 characters long' });
-    }
-
-    // Get user by email
-    const userRecord = await admin.auth().getUserByEmail(email);
-    
-    // Update password in Firebase Auth
-    await admin.auth().updateUser(userRecord.uid, {
-      password: newPassword
-    });
-
-    // Send confirmation email
-    await transporter.sendMail({
-      from: 'epicesporthelp@gmail.com',
-      to: email,
-      subject: 'Epic E-Sport - Password Changed Successfully',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #BB86FC;">Password Changed Successfully</h2>
-          <p>Hello!</p>
-          <p>Your password has been successfully changed.</p>
-          <p>If you didn't make this change, please contact our support team immediately.</p>
-          <p>Best regards,<br>Epic E-Sport Team</p>
-        </div>
-      `
-    });
-
-    res.json({ message: 'Password reset successfully' });
-  } catch (error) {
-    console.error('Reset password error:', error);
-    res.status(500).json({ error: 'Failed to reset password' });
-  }
-});
-
-// Get user info route (for debugging)
-app.get('/user/:email', async (req, res) => {
-  try {
-    const { email } = req.params;
-    const userRecord = await admin.auth().getUserByEmail(email);
-    res.json({ 
-      uid: userRecord.uid,
-      email: userRecord.email,
-      displayName: userRecord.displayName,
-      emailVerified: userRecord.emailVerified
-    });
-  } catch (error) {
-    console.error('Get user error:', error);
-    res.status(500).json({ error: 'Failed to get user info' });
-  }
-});
-
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`🚀 Epic E-Sport OTP Server is live on port ${PORT}`);
-  console.log(`�� Health check: http://localhost:${PORT}/`);
-  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`Server live on port ${PORT}`);
 });
