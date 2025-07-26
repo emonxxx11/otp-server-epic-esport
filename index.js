@@ -1,9 +1,9 @@
+require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
 const admin = require('firebase-admin');
 const nodemailer = require('nodemailer');
 const cors = require('cors');
-const bcrypt = require('bcrypt');
 
 const app = express();
 app.use(cors());
@@ -223,6 +223,7 @@ app.get('/user/:email', async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Server live on port ${PORT}`);
-  console.log(`Health check: http://localhost:${PORT}/`);
-}); 
+  console.log(`🚀 Epic E-Sport OTP Server is live on port ${PORT}`);
+  console.log(`�� Health check: http://localhost:${PORT}/`);
+  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+});
