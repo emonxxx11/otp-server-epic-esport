@@ -56,7 +56,7 @@ admin.initializeApp({
   databaseURL: "https://epic-e-sport-default-rtdb.firebaseio.com"
 });
 
-const transporter = nodemailer.createTransporter({
+const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
     user: 'epicesporthelp@gmail.com',
